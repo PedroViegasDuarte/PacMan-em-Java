@@ -1,4 +1,5 @@
 import javax.swing.JFrame;
+import java.awt.event.ActionEvent;
 
 public class Main {
     public static void main(String[] args) {
@@ -17,6 +18,7 @@ public class Main {
         Pacman pacmanGame = new Pacman();
         frame.add(pacmanGame);
         frame.pack();
+        pacmanGame.requestFocus();
         frame.setVisible(true);
     }
 }

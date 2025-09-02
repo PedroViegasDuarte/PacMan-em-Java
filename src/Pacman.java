@@ -4,7 +4,7 @@ import java.util.HashSet;
 import java.util.Random;
 import javax.swing.*;
 
-public class Pacman extends JPanel{
+public class Pacman extends JPanel implements ActionListener, KeyListener  {
     class Block {
         int x;
         int y;
@@ -14,6 +14,9 @@ public class Pacman extends JPanel{
 
         int startX;
         int startY;
+        char direcao = 'U';
+        int velocidadeX = 0;
+        int velocidadeY = 0;
 
         Block(Image image, int x, int y, int width, int height){
             this.image = image;
@@ -25,6 +28,39 @@ public class Pacman extends JPanel{
             this.startY = y;
         }
 
+        void uptadeDirection(char direcao){
+            char prevDirection = this.direcao;
+            this.direcao = direcao;
+            atualizarVelocidade();
+            this.x += this.velocidadeX;
+            this.y += this.velocidadeY;
+            for (Block wall : walls){
+                if (colisao(this, wall)) {
+                    this.x -= this.velocidadeX;
+                    this.y -= this.velocidadeY;
+                    this.direcao = prevDirection;
+                    atualizarVelocidade();
+                }
+            }
+        }
+        void atualizarVelocidade(){
+            if(this.direcao == 'U'){
+                this.velocidadeX = 0;
+                this.velocidadeY = -tileSize/4; //32/4 = 8 pixels
+            }
+            else if (this.direcao == 'D'){
+                this.velocidadeX = 0;
+                this.velocidadeY = tileSize/4;
+            }
+            else if (this.direcao == 'L'){
+                this.velocidadeX = - tileSize / 4;
+                this.velocidadeY = 0;
+            }
+            else if (this.direcao == 'R'){
+                this.velocidadeX = tileSize / 4;
+                this.velocidadeY = 0;
+            }
+        }
     }
     private int rowCount = 21;
     private int columCount = 19;
@@ -73,9 +109,16 @@ public class Pacman extends JPanel{
     HashSet<Block> ghosts;
     Block pacman;
 
+    Timer gameLoop;
+    char[] direcoes = {'U', 'D', 'L', 'R'};
+    Random random = new Random();
+
+//construtor
     Pacman() {
         setPreferredSize(new Dimension(boardWidth, boardHeight));
         setBackground(Color.BLACK);
+        addKeyListener(this);
+        setFocusable(true);
 
         //carregar imagens
         wallImage = new ImageIcon(getClass().getResource("./wall.png")).getImage();
@@ -90,9 +133,13 @@ public class Pacman extends JPanel{
         pacmanRightImage = new ImageIcon(getClass().getResource("./pacmanRight.png")).getImage();
 
         mapa();
-        System.out.println(walls.size());
-        System.out.println(foods.size());
-        System.out.println(ghosts.size());
+        for (Block ghost : ghosts){
+            char novaDirecao = direcoes[random.nextInt(4)];
+            ghost.uptadeDirection(novaDirecao);
+        }
+        //o tempo que leva para começar a contar o timer, milisegundos entre frames
+        gameLoop = new Timer(50, this); //20 fps (1000/50)
+        gameLoop.start();
     }
 
     public void mapa() {
@@ -137,5 +184,112 @@ public class Pacman extends JPanel{
                 }
             }
         }
+    }
+
+    public void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        draw(g);
+    }
+    public void draw(Graphics g){
+        g.drawImage(pacman.image, pacman.x, pacman.y, pacman.width, pacman.height, null);//pacman
+
+        for (Block ghost : ghosts){
+            g.drawImage(ghost.image, ghost.x, ghost.y, ghost.width, ghost.height, null);
+        }
+
+        for(Block wall : walls){
+            g.drawImage(wall.image, wall.x, wall.y, wall.width, wall.height, null);
+        }
+
+        g.setColor(Color.WHITE);
+        for(Block food : foods){
+            g.fillRect(food.x, food.y, food.width, food.height);
+        }
+    }
+
+    public void move(){
+        pacman.x += pacman.velocidadeX;
+        pacman.y += pacman.velocidadeY;
+//fazer o pacman atravessar o mapa
+        if (pacman.x < 0) pacman.x = boardWidth - tileSize;
+        else if (pacman.x >= boardWidth) pacman.x = 0;
+        if (pacman.y < 0) pacman.y = boardHeight - tileSize;
+        else if (pacman.y >= boardHeight) pacman.y = 0;
+
+        //checar colisao
+        for(Block wall : walls){
+            if (colisao(pacman, wall)){
+                pacman.x -= pacman.velocidadeX;//se houver colisao. passo para tras
+                pacman.y -= pacman.velocidadeY;
+                break;
+            }
+        }
+
+        //colisao para os fanstasmas / fazer trocar a direçao deles caso haja colisa
+        for (Block ghost : ghosts){
+            ghost.x += ghost.velocidadeX;
+            ghost.y += ghost.velocidadeY;
+        //fazer o pacman atravessar o mapa
+            if (ghost.x < 0) ghost.x = boardWidth - tileSize;
+            else if (ghost.x >= boardWidth) ghost.x = 0;
+            if (ghost.y < 0) ghost.y = boardHeight - tileSize;
+            else if (ghost.y >= boardHeight) ghost.y = 0;
+            for (Block wall: walls)
+            {
+                if(colisao(ghost, wall)) {
+                    ghost.x -= ghost.velocidadeX;
+                    ghost.y -= ghost.velocidadeY;
+                    char novaDirecao = direcoes[random.nextInt(4)];
+                    ghost.uptadeDirection(novaDirecao);
+                }
+            }
+        }
+    }
+    //colisao com a parde
+    public boolean colisao(Block a, Block b){
+        return  a.x < b.x + b.width &&
+                a.x + a.width > b.x &&
+                a.y < b.y + b.height &&
+                a.y + a.height > b.y;
+    }
+
+
+        public void actionPerformed(ActionEvent e) {
+        move();
+        repaint();
+        }
+
+        public void keyTyped(KeyEvent e){
+        }
+        public void keyPressed(KeyEvent e){
+        }
+        public void keyReleased(KeyEvent e){
+            System.out.println("KeyEvent: " + e.getKeyCode());
+            if(e.getKeyCode() == KeyEvent.VK_UP){
+                pacman.uptadeDirection('U');
+            }
+            else if(e.getKeyCode() == KeyEvent.VK_DOWN){
+                pacman.uptadeDirection('D');
+            }
+             else if(e.getKeyCode() == KeyEvent.VK_LEFT){
+                pacman.uptadeDirection('L');
+            }
+              else if(e.getKeyCode() == KeyEvent.VK_RIGHT){
+                pacman.uptadeDirection('R');
+            }
+              //imagem do pacman
+              if (pacman.direcao == 'U') {
+                  pacman.image = pacmanUpImage;
+            }
+              else if (pacman.direcao == 'D') {
+                pacman.image = pacmanDownImage;
+            }
+              else if (pacman.direcao == 'L') {
+                pacman.image = pacmanLeftImage;
+            }
+              else if (pacman.direcao == 'R') {
+                pacman.image = pacmanRightImage;
+            }
+
     }
 }
