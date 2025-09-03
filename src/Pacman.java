@@ -61,6 +61,11 @@ public class Pacman extends JPanel implements ActionListener, KeyListener  {
                 this.velocidadeY = 0;
             }
         }
+        // fazer voltar para o ponot inicial
+        void reset(){
+            this.x = this.startX;
+            this.y = this.startY;
+        }
     }
     private int rowCount = 21;
     private int columCount = 19;
@@ -112,6 +117,9 @@ public class Pacman extends JPanel implements ActionListener, KeyListener  {
     Timer gameLoop;
     char[] direcoes = {'U', 'D', 'L', 'R'};
     Random random = new Random();
+    int score = 0;
+    int lives = 3;
+    boolean gameOver = false;
 
 //construtor
     Pacman() {
@@ -205,6 +213,15 @@ public class Pacman extends JPanel implements ActionListener, KeyListener  {
         for(Block food : foods){
             g.fillRect(food.x, food.y, food.width, food.height);
         }
+        //pontuaçao / score
+        g.setFont(new Font("Arial", Font.PLAIN, 18));
+        if (gameOver) {
+            g.drawString("Game Over: " + String.valueOf(score), tileSize/2, tileSize/2 );
+        }
+        else {
+            g.drawString("x" + String.valueOf(score), tileSize/2, tileSize/2 );
+            g.drawString("Lives: " + lives, tileSize/2, tileSize );
+        }
     }
 
     public void move(){
@@ -224,9 +241,19 @@ public class Pacman extends JPanel implements ActionListener, KeyListener  {
                 break;
             }
         }
-
         //colisao para os fanstasmas / fazer trocar a direçao deles caso haja colisa
         for (Block ghost : ghosts){
+            if (colisao(ghost, pacman)){
+                lives -= 1;
+                if (lives == 0){
+                    gameOver = true;
+
+                }
+                resetPosicao();
+            }
+            if (ghost.y == tileSize*9 && ghost.direcao != 'U' && ghost.direcao != 'D'){ // fazer o fantasma subir no nono quadrado
+                ghost.uptadeDirection('U');
+            }
             ghost.x += ghost.velocidadeX;
             ghost.y += ghost.velocidadeY;
         //fazer o pacman atravessar o mapa
@@ -244,6 +271,20 @@ public class Pacman extends JPanel implements ActionListener, KeyListener  {
                 }
             }
         }
+        //colisao com a comida e +10 pontos toda vez que isso ocorrer
+        Block foodComida = null;
+        for (Block food : foods){
+            if (colisao(pacman, food)) {
+                foodComida = food;
+                score += 10;
+            }
+        }
+        foods.remove(foodComida);
+
+        if (foods.isEmpty()){
+            mapa();
+            resetPosicao();
+        }
     }
     //colisao com a parde
     public boolean colisao(Block a, Block b){
@@ -253,10 +294,24 @@ public class Pacman extends JPanel implements ActionListener, KeyListener  {
                 a.y + a.height > b.y;
     }
 
+    public void resetPosicao(){
+        pacman.reset();
+        pacman.velocidadeX = 0;
+        pacman.velocidadeY = 0;
+        for (Block ghost : ghosts){
+            ghost.reset();
+            char novaDirecao = direcoes[random.nextInt(4)];
+            ghost.uptadeDirection((novaDirecao));
+        }
+    }
+
 
         public void actionPerformed(ActionEvent e) {
-        move();
-        repaint();
+         move();
+            repaint();
+            if (gameOver){
+                 gameLoop.stop();
+        }
         }
 
         public void keyTyped(KeyEvent e){
@@ -264,6 +319,15 @@ public class Pacman extends JPanel implements ActionListener, KeyListener  {
         public void keyPressed(KeyEvent e){
         }
         public void keyReleased(KeyEvent e){
+            if(gameOver) { //garantir que o jogo de start denovo qnd as vidas acabarem
+                mapa();
+                resetPosicao();
+                lives = 3;
+                score = 0;
+                gameOver = false;
+                gameLoop.start();
+            }
+
             System.out.println("KeyEvent: " + e.getKeyCode());
             if(e.getKeyCode() == KeyEvent.VK_UP){
                 pacman.uptadeDirection('U');
